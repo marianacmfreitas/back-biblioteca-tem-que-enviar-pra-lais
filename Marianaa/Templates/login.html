@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+</head>
+<body>
+    <header>
+        <h1>Biblioteca</h1>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+    </header>
+
+    <h1>Login</h1>
+
+    <form action="{{ url_for('login') }}" method="POST">
+
+        <label>Email:</label>
+        <input type="text" name="email" required>
+
+        <br><br>
+
+        <label>Senha:</label>
+        <input type="password" name="senha" required>
+
+        <br><br>
+
+
+
+    </form>
+
+<a href="{{ url_for('index') }}">
+    <button>Entrar</button>
+</a>
+
+<a href="{{ url_for('usu_novo') }}">
+    <button>Cadastrar</button>
+</a>
+</body>
+</html>

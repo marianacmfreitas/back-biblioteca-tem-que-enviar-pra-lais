@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+    <header>
+            <h1>Biblioteca</h1>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-messages">
+                        {% for category, message in messages %}
+                            <div class="flash {{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+    </header>
+    <h2>Editar </h2>
+       <form action="{{ url_for('editar', id=livro[0]) }}" method="post">
+           <label for="titulo">Titulo:</label>
+           <input type="text" id="titulo" name="titulo" value="{{ livro[1] }}" required>
+
+           <label for="autor">Autor:</label>
+           <input type="text" id="autor" name="autor" value="{{ livro[2] }}" required>
+
+           <label for="ano_publicado">Ano de publicação:</label>
+           <input type="number" id="ano_publicado" name="ano_publicado" value="{{ livro[3] }}" required>
+
+           <div>
+               <button type="submit" class="btn">Salvar</button>
+           </div>
+       </form>
+</body>
+</html>
