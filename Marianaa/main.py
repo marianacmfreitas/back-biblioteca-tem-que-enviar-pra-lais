@@ -1,9 +1,7 @@
-import os
-
-from flask import Flask, render_template, request, flash, redirect, url_for,session
+from flask import Flask, render_template, request, flash, redirect, url_for,session,send_file
 import fdb
 from flask_bcrypt import Bcrypt
-
+from fpdf import FPDF
 app = Flask(__name__)
 
 bcrypt = Bcrypt(app)
@@ -18,8 +16,8 @@ password = 'sysdba'
 con = fdb.connect(host=host, database=database, user=user, password=password)
 
 
-@app.route("/")
-def index():
+@app.route("/biblioteca")
+def biblioteca():
     cursor = con.cursor()  # abrindo o cursor
     cursor.execute("""select l.id_livro, l.nome, l.autor, l.ano_publicacao
                       from livro l
@@ -29,18 +27,20 @@ def index():
 
     cursor.close()
 
-    return render_template('index.html', livros=livros)
+    return render_template('biblioteca.html', livros=livros)
 
 
 @app.route("/novo")
 def novo():
     if 'id_usuario' not in session:
         flash('Precisa estar logado')
-        return redirect(url_for("login"))
+        return redirect(url_for("index"))
     return render_template('novo.html',titulo="Novo Livro")
 
-@app.route("/criar", methods=['POST'])
+@app.route("/criar", methods=['POST','GET'])
 def criar():
+    if request.method == 'GET':
+        return render_template('novo.html')
 
     nome = request.form['nome']
     autor = request.form['autor']
@@ -82,11 +82,12 @@ def criar():
 
         cursor.close()
 
-    return redirect(url_for("index"))
+    return redirect(url_for("biblioteca"))
 
 
 @app.route("/editar/<int:id>", methods=['GET', 'POST'])
 def editar(id):
+
     cursor = con.cursor()
     try:
         cursor.execute("""SELECT id_livro, nome, autor, ano_publicacao
@@ -96,7 +97,7 @@ def editar(id):
 
         if not livro:
             flash('Livro não encontrado!')
-            return redirect(url_for("index"))
+            return redirect(url_for("biblioteca"))
 
         if request.method == 'POST':
             nome = request.form['titulo']
@@ -114,14 +115,14 @@ def editar(id):
 
             con.commit()
             flash("Livro editado com sucesso!")
-            return redirect(url_for("index"))
+            return redirect(url_for("biblioteca"))
 
         return render_template("editar.html", livro=livro)
 
     except Exception as e:
         con.rollback()
         flash(f"Ocorreu um erro -> {e}")
-        return redirect(url_for("index"))
+        return redirect(url_for("biblioteca"))
     finally:
         cursor.close()
 
@@ -135,11 +136,11 @@ def deletar(id):
                           where id_livro = ?""", (id,))
         con.commit()
         flash("Livro deletado com sucesso!")
-        return redirect(url_for("index"))
+        return redirect(url_for("biblioteca"))
     except Exception as e:
         con.rollback()
         flash(f"Ocorreu um erro -> {e}")
-        return redirect(url_for("index"))
+        return redirect(url_for("biblioteca"))
     finally:
         cursor.close()
 
@@ -193,7 +194,7 @@ def criastes():
     finally:
         cursor.close()
 
-    return redirect(url_for('lista_usu'))
+    return redirect(url_for('index'))
 
 @app.route("/editares/<int:id>",methods=['GET','POST'])
 def editares(id):
@@ -213,14 +214,19 @@ def editares(id):
             nome = request.form['nome']
             email = request.form['email']
             senha = request.form['senha']
-            print('entrei')
+
+            if not senha_forte(senha):
+                flash('A senha precisa ter no minimo 8 caracteres, uma letra maiuscula e uma minuscula')
+                return redirect(url_for('usu_novo'))
+
+            senha_hash = bcrypt.generate_password_hash(senha).decode('utf-8')
 
             cursor.execute(""" UPDATE usuario
                                set nome = ?, email = ?, senha = ?
                                where id_usuario = ?""",
-                           (nome,email,senha,id))
+                           (nome,email,senha_hash,id))
 
-            print('alterei')
+
 
             con.commit()
             flash("Usuario editado com sucesso!")
@@ -251,11 +257,11 @@ def deletar_usu(id):
         cursor.close()
 
 
-@app.route('/login', methods=['POST', 'GET'])
-def login():
+@app.route('/', methods=['POST', 'GET'])
+def index():
 
     if request.method == 'GET':
-        return render_template('login.html')
+        return render_template('index.html')
 
 
     email = request.form.get('email')
@@ -275,7 +281,7 @@ def login():
 
         if not usuario:
             flash("Usuário não encontrado")
-            return redirect(url_for('login'))
+            return redirect(url_for('index'))
 
 
         id_usuario, senha_hash = usuario
@@ -283,23 +289,29 @@ def login():
         if bcrypt.check_password_hash(senha_hash, senha):
             session['id_usuario'] = id_usuario
             flash('Conta logada com sucesso')
-            return redirect(url_for('index'))
+            return redirect(url_for('biblioteca'))
         else:
             flash('Email ou senha inválida')
-            return redirect(url_for('login'))
+            return redirect(url_for('index'))
 
     except Exception as e:
         flash(f"Ocorreu um erro -> {e}")
-        return redirect(url_for("login"))
+        return redirect(url_for("index"))
 
     finally:
         cursor.close()
 
 @app.route('/logout')
 def logout():
-    session.pop('id_usuario', None)
-    flash("Logout com sucesso!")
-    return redirect(url_for('login'))
+    if 'id_usuario' in session:
+        session.pop('id_usuario')
+        flash("Logout com sucesso!")
+        return redirect(url_for('biblioteca'))
+
+    else:
+        flash('Nenhuma conta está logada')
+        return redirect(url_for('index'))
+
 
 def senha_forte(senha):
     if len(senha) < 8:
@@ -312,6 +324,65 @@ def senha_forte(senha):
         return False
     else:
         return True
+
+
+@app.route('/livros/relatorio', methods=['GET'])
+def relatorio():
+
+    cursor = con.cursor()
+
+    cursor.execute("""
+        SELECT id_livro, nome, autor, ano_publicacao
+        FROM livro
+    """)
+
+    livros = cursor.fetchall()
+    cursor.close()
+
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+
+    pdf.set_font("Arial", style='B', size=16)
+    pdf.cell(200, 10, "Relatório de Livros", ln=True, align='C')
+
+    pdf.ln(5)  # Espaço entre o título e a linha
+    pdf.line(10, pdf.get_y(), 200, pdf.get_y())  # Linha abaixo do título
+    pdf.ln(5)  # Espaço após a linha
+
+    pdf.set_font("Arial", size=12)
+
+    for livro in livros:
+        pdf.cell(
+            200,
+            10,
+            f"ID: {livro[0]} - {livro[1]} - {livro[2]} - {livro[3]}",
+            ln=True
+        )
+
+    contador_livros = len(livros)
+
+    pdf.ln(10)  # Espaço antes do contador
+
+    pdf.set_font("Arial", style='B', size=12)
+
+    pdf.cell(
+        200,
+        10,
+        f"Total de livros cadastrados: {contador_livros}",
+        ln=True,
+        align='C'
+    )
+
+    pdf_path = "relatorio_livros.pdf"
+
+    pdf.output(pdf_path)
+
+    return send_file(
+        pdf_path,
+        as_attachment=True,
+        mimetype='application/pdf'
+    )
 
 if __name__ == "__main__":
     app.run(debug=True)

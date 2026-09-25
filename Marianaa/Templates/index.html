@@ -1,58 +1,50 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Title</title>
-    <link rel='stylesheet' href="{{ url_for('static',filename='style.css')}}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <link rel='stylesheet' href="{{ url_for('static',filename='indesss.css')}}">
 </head>
 <body>
-  <header>
-    <h1>Biblioteca</h1>
+    <header>
+        <h1>Biblioteca</h1>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            <div class="flash-messages">
-                {% for category, message in messages %}
-                    <div class="flash {{ category }}">{{ message }}</div>
-                {% endfor %}
-            </div>
-        {% endif %}
-    {% endwith %}
-</header>
-    <main>
-       <h2>LISTA DE LIVROS</h2>
-         <table>
-            <thead>
-            <tr>
-                <th>Codigo</th>
-                <th>Titulo</th>
-                <th>Autor</th>
-                <th>Ano de publicação</th>
-            </tr>
-            </thead>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+    </header>
 
-             <tbody>
-                {% for livro in livros %}
-                <tr>
-                    <div class="um"><td>{{livro[0]}}</td></div>
-                    <div class="dois"><td>{{livro[1]}}</td></div>
-                    <div class="tres"><td>{{livro[2]}}</td></div>
-                    <div class="quadro"><td>{{livro[3]}}</td></div>
-                    <td>
-                        <a href="{{ url_for('editar',id=livro[0]) }}">Editar</a>
-                         <form action="{{ url_for('deletar', id=livro[0])}}" method="post" style="display:inline">
-                            <button type="submit">Deletar</button>
-                        </form>
+    <h1>Login</h1>
 
-                    </td>
+    <form action="{{ url_for('index') }}" method="POST">
 
-                </tr>
-                {% endfor%}
-            </tbody>
-        </table>
-    </main>
+        <label>Email:</label>
+        <input type="text" name="email" required>
 
+        <br><br>
+
+        <label>Senha:</label>
+        <input type="password" name="senha" required>
+
+        <br><br>
+
+
+
+    </form>
+
+<a href="{{ url_for('biblioteca') }}">
+    <button>Entrar</button>
+</a>
+
+<a href="{{ url_for('usu_novo') }}">
+    <button>Cadastrar</button>
+</a>
 </body>
-
-
 </html>
