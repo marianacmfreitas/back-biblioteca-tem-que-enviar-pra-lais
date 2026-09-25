@@ -181,9 +181,9 @@ def criastes():
         senha_hash = bcrypt.generate_password_hash(senha).decode('utf-8')
 
         cursor.execute("""
-            INSERT INTO usuario (nome, email, senha)
-            VALUES (?, ?, ?)
-        """, (nome, email, senha_hash))
+            INSERT INTO usuario (nome, email, senha,tentativas)
+            VALUES (?, ?, ?,?)
+        """, (nome, email, senha_hash,0))
 
         con.commit()
 
@@ -257,49 +257,57 @@ def deletar_usu(id):
         cursor.close()
 
 
-@app.route('/', methods=['POST', 'GET'])
+@app.route('/', methods=['GET', 'POST'])
 def index():
-
     if request.method == 'GET':
         return render_template('index.html')
-
-
-    email = request.form.get('email')
-    senha = request.form.get('senha')
-
+    email = request.form['email']
+    senha = request.form['senha']
     cursor = con.cursor()
-
     try:
-
-        cursor.execute("""
-                       SELECT id_usuario, senha
-                       FROM usuario
-                       WHERE email = ?
-                       """, (email,))
-
+        cursor.execute("""SELECT id_usuario, senha, tentativas
+                          FROM usuario u
+                          WHERE u.email = ? """, (email,))
         usuario = cursor.fetchone()
-
         if not usuario:
             flash("Usuário não encontrado")
             return redirect(url_for('index'))
+        id_usuario, senha_hash, tentativas = usuario
 
-
-        id_usuario, senha_hash = usuario
-
-        if bcrypt.check_password_hash(senha_hash, senha):
-            session['id_usuario'] = id_usuario
-            flash('Conta logada com sucesso')
-            return redirect(url_for('biblioteca'))
-        else:
-            flash('Email ou senha inválida')
+        if tentativas >= 3:
+            flash("Você passou de 3 tentativas! Sua conta foi bloqueada.")
             return redirect(url_for('index'))
+        if usuario:
+            if bcrypt.check_password_hash(senha_hash, senha):
+
+                cursor.execute("""UPDATE usuario
+                                  set tentativas = 0
+                                  where id_usuario = ?""", (id_usuario,))
+                con.commit()
+                session['id_usuario'] = id_usuario
+                flash('Conta logada')
+                return redirect(url_for('biblioteca'))
+            else:
+
+                cursor.execute("""UPDATE usuario
+                                  set tentativas = tentativas + 1
+                                  where id_usuario = ?""", (id_usuario,))
+                con.commit()
+                if tentativas + 1 >= 3:
+                    flash('Você passou de 3 tentativas! Sua conta foi bloqueada.')
+                else:
+                    flash('Email ou senha inválida')
+                return redirect(url_for('index'))
+        return render_template('index.html')
 
     except Exception as e:
-        flash(f"Ocorreu um erro -> {e}")
-        return redirect(url_for("index"))
-
+        flash(f"Ocorreu um error -> {e}")
+        con.rollback()
+        return redirect(url_for('index'))
     finally:
         cursor.close()
+
+
 
 @app.route('/logout')
 def logout():
