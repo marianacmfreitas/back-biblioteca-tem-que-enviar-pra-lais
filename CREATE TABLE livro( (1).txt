@@ -70,4 +70,6 @@ SELECT u.nome ,u.email, u.senha
 
 FROM usuario u
 
+ALTER TABLE usuario ADD tentativas INTEGER
+
 
